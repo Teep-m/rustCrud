@@ -1,0 +1,12 @@
+FROM rust:latest
+
+WORKDIR /app
+
+# Copy source code (will be overridden by volume mount in dev)
+COPY . .
+
+# Expose port
+EXPOSE 8000
+
+# Run the application
+CMD ["cargo", "run", "--bin", "backend"]
