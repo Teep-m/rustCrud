@@ -1,43 +1,49 @@
-#[macro_use] extern crate rocket;
+mod domain;
+mod application;
+mod infrastructure;
+mod presentation;
 
-mod db;
-mod models;
-mod routes;
+use std::sync::Arc;
+use actix_web::{web, App, HttpServer};
+use actix_cors::Cors;
 
-use rocket::fairing::{Fairing, Info, Kind};
-use rocket::http::Header;
-use rocket::{Request, Response};
+use infrastructure::{init_db, TodoRepositoryImpl};
+use application::todo::TodoService;
 
-pub struct CORS;
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    // 環境変数の読み込み
+    dotenvy::dotenv().ok();
 
-#[rocket::async_trait]
-impl Fairing for CORS {
-    fn info(&self) -> Info {
-        Info {
-            name: "Add CORS headers to responses",
-            kind: Kind::Response
-        }
-    }
+    println!("🚀 サーバーを起動中...");
 
-    async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
-        response.set_header(Header::new("Access-Control-Allow-Origin", "*"));
-        response.set_header(Header::new("Access-Control-Allow-Methods", "POST, GET, PATCH, OPTIONS, DELETE, PUT"));
-        response.set_header(Header::new("Access-Control-Allow-Headers", "*"));
-        response.set_header(Header::new("Access-Control-Allow-Credentials", "true"));
-    }
-}
+    // データベース初期化
+    let pool = init_db().await;
+    println!("✅ データベース接続完了");
 
-#[launch]
-async fn rocket() -> _ {
-    let pool = db::init_db().await;
+    // リポジトリ層の初期化
+    let todo_repository = Arc::new(TodoRepositoryImpl::new(pool));
 
-    rocket::build()
-        .attach(CORS)
-        .manage(pool)
-        .mount("/api", routes![
-            routes::get_todos,
-            routes::create_todo,
-            routes::update_todo,
-            routes::delete_todo
-        ])
+    // アプリケーション層（サービス）の初期化
+    let todo_service = Arc::new(TodoService::new(todo_repository));
+
+    println!("🌐 サーバーを http://0.0.0.0:8000 で起動します");
+
+    // HTTPサーバーの起動
+    HttpServer::new(move || {
+        // CORS設定
+        let cors = Cors::default()
+            .allow_any_origin()
+            .allow_any_method()
+            .allow_any_header()
+            .max_age(3600);
+
+        App::new()
+            .wrap(cors)
+            .app_data(web::Data::new(todo_service.clone()))
+            .configure(presentation::config)
+    })
+    .bind(("0.0.0.0", 8000))?
+    .run()
+    .await
 }

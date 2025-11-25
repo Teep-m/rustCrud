@@ -1,13 +1,33 @@
 # Rust CRUD Application
 
-Rust (Rocket + Leptos) + PostgreSQL + Nginx を使用したCRUDアプリケーション。
+Rust (Actix-Web + Leptos) + SurrealDB + Nginx を使用したCRUDアプリケーション。
+DDDアーキテクチャを採用しています。
 
 ## 技術スタック
-- **Backend**: Rust (Rocket)
+- **Backend**: Rust (Actix-Web 4.x)
 - **Frontend**: Rust (Leptos)
-- **Database**: PostgreSQL
+- **Database**: SurrealDB 2.x (次世代マルチモデルデータベース)
 - **Reverse Proxy**: Nginx
-- **Containerization**: Docker
+- **Containerization**: Docker & Docker Compose
+
+## SurrealDBについて
+SurrealDBは、SQL、GraphQL、リアルタイム、ドキュメント指向、グラフ、ベクトル検索など、複数のデータモデルをサポートする次世代データベースです。
+
+### 主な特徴
+- マルチモデル: ドキュメント、グラフ、リレーショナル、ベクトル
+- リアルタイムサブスクリプション
+- スキーマレスまたはスキーマフル
+- 組み込みの認証と権限管理
+- SurrealQL (拡張SQL)
+
+## アーキテクチャ
+DDDに基づいた4層アーキテクチャ:
+- **Domain層**: ビジネスロジック、エンティティ
+- **Application層**: ユースケース、サービス
+- **Infrastructure層**: データベース、リポジトリ実装
+- **Presentation層**: API、HTTPハンドラー
+
+詳細は `backend/DDD_ARCHITECTURE.md` を参照してください。
 
 ## 前提条件
 - Docker & Docker Compose
@@ -19,8 +39,9 @@ make up
 ```
 
 アプリケーションにアクセス:
-- Frontend: http://localhost
-- Backend API: http://localhost/api/todos
+- **Frontend**: http://localhost
+- **Backend API**: http://localhost/api/todos
+- **SurrealDB Web UI**: http://localhost:8080
 
 ## 主要コマンド
 
@@ -30,23 +51,50 @@ make up
 | `make down` | コンテナを停止・削除 |
 | `make logs` | ログを表示 |
 | `make clean-db` | DBデータを削除してリセット |
-| `make iseed TABLE=xxx` | 指定テーブルからSeeder SQLを生成 |
-| `make seed FILE=xxx.sql` | 指定したSeederファイルをDBに実行 |
+
+## API エンドポイント
+
+### Todos
+- `GET /api/todos` - 全Todoを取得
+- `GET /api/todos/{id}` - 特定のTodoを取得
+- `POST /api/todos` - Todoを作成
+- `PUT /api/todos/{id}` - Todoを更新
+- `DELETE /api/todos/{id}` - Todoを削除
+
+### リクエスト例
+
+```bash
+# 一覧取得
+curl http://localhost/api/todos
+
+# 作成
+curl -X POST http://localhost/api/todos \
+  -H "Content-Type: application/json" \
+  -d '{"title":"新しいタスク"}'
+
+# 更新
+curl -X PUT http://localhost/api/todos/1 \
+  -H "Content-Type: application/json" \
+  -d '{"completed":true}'
+
+# 削除
+curl -X DELETE http://localhost/api/todos/1
+```
 
 ## 開発
 
-### Seederの使い方
+### SurrealDBの直接操作
 
-1. **データベースのデータからSeederを生成**:
-   ```bash
-   make iseed TABLE=todos
-   ```
-   → `backend/migrations/seed_todos.sql` が生成されます
+```bash
+# SurrealDBコンテナに接続
+docker exec -it webapp-db-1 /surreal sql --conn http://localhost:8000 --user root --pass root --ns app --db todos
 
-2. **Seederを実行**:
-   ```bash
-   make seed FILE=seed_todos.sql
-   ```
+# 全Todoを表示
+SELECT * FROM todos;
+
+# Todoを作成
+CREATE todos SET title = "Test", completed = false;
+```
 
 ### GCP Compute Engine へのデプロイ
 
@@ -60,27 +108,32 @@ make up
 
 ```
 .
-├── backend/           # Rocket API サーバー
+├── backend/              # Actix-Web API サーバー
 │   ├── src/
-│   │   ├── bin/
-│   │   │   └── iseed.rs    # Seeder生成ツール
-│   │   ├── main.rs         # エントリーポイント
-│   │   ├── routes.rs       # APIルート
-│   │   ├── models.rs       # データモデル
-│   │   └── db.rs           # DB接続
-│   └── migrations/         # SQLマイグレーション
-├── frontend/          # Leptos WebAssembly アプリ
+│   │   ├── domain/           # ドメイン層
+│   │   │   └── todo/
+│   │   ├── application/      # アプリケーション層
+│   │   │   └── todo/
+│   │   ├── infrastructure/   # インフラ層
+│   │   │   └── persistence/
+│   │   └── presentation/     # プレゼンテーション層
+│   │       └── api/
+├── frontend/             # Leptos WebAssembly アプリ
 │   ├── src/
-│   │   ├── lib.rs          # メインコンポーネント
-│   │   └── main.rs         # エントリーポイント
-│   └── index.html          # HTMLテンプレート
-├── docker-compose.yml      # Docker構成
-├── Dockerfile.backend      # Backendイメージ
-├── Dockerfile.frontend     # Frontendイメージ
-├── nginx.conf              # Nginx設定
-└── Makefile                # 便利コマンド
+│   │   ├── lib.rs            # メインコンポーネント
+│   │   └── main.rs           # エントリーポイント
+│   └── index.html            # HTMLテンプレート
+├── docker-compose.yml        # Docker構成
+├── Dockerfile.backend        # Backendイメージ
+├── Dockerfile.frontend       # Frontendイメージ
+├── nginx.conf                # Nginx設定
+└── Makefile                  # 便利コマンド
 ```
 
-## ライセンス
+## バージョン情報
+- Actix-Web: 4.4
+- SurrealDB: 1.5
+- Rust: Latest
 
+## ライセンス
 MIT

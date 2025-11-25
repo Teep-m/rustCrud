@@ -29,7 +29,10 @@ pub fn App() -> impl IntoView {
 
     let add_todo = move |title: String| {
         spawn_local(async move {
-            let new_todo = serde_json::json!({ "title": title });
+            let new_todo = serde_json::json!({
+                "title": title,
+                "completed": false
+            });
             let res = Request::post("/api/todos")
                 .json(&new_todo)
                 .unwrap()

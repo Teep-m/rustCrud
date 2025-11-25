@@ -1,25 +1,22 @@
-version: '3.8'
-
 services:
   db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: todo_db
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    image: surrealdb/surrealdb:latest
+    command: start --user root --pass root
     ports:
-      - "5432:5432"
+      - "8080:8000"
+    volumes:
+      - surrealdb_data:/data
 
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
     environment:
-      DATABASE_URL: postgres://user:password@db:5432/todo_db
-      ROCKET_ADDRESS: 0.0.0.0
-      ROCKET_PORT: 8000
+      DATABASE_URL: db:8000
+      DATABASE_USER: root
+      DATABASE_PASS: root
+      DATABASE_NS: app
+      DATABASE_NAME: todos
     depends_on:
       - db
     ports:
@@ -38,4 +35,4 @@ services:
       - backend
 
 volumes:
-  postgres_data:
+  surrealdb_data:
