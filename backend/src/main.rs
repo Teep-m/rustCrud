@@ -1,14 +1,14 @@
-mod domain;
 mod application;
+mod domain;
 mod infrastructure;
 mod presentation;
 
-use std::sync::Arc;
-use actix_web::{web, App, HttpServer};
 use actix_cors::Cors;
+use actix_web::{web, App, HttpServer};
+use std::sync::Arc;
 
-use infrastructure::{init_db, TodoRepositoryImpl};
 use application::todo::TodoService;
+use infrastructure::{init_db, TodoRepositoryImpl};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -27,7 +27,13 @@ async fn main() -> std::io::Result<()> {
     // アプリケーション層（サービス）の初期化
     let todo_service = Arc::new(TodoService::new(todo_repository));
 
-    println!("🌐 サーバーを http://0.0.0.0:8000 で起動します");
+    // ポート番号を環境変数から取得、デフォルトは8080
+    let port = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(8080);
+
+    println!("🌐 サーバーを http://0.0.0.0:{} で起動します", port);
 
     // HTTPサーバーの起動
     HttpServer::new(move || {
@@ -43,7 +49,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(todo_service.clone()))
             .configure(presentation::config)
     })
-    .bind(("0.0.0.0", 8000))?
+    .bind(("0.0.0.0", port))?
     .run()
     .await
 }

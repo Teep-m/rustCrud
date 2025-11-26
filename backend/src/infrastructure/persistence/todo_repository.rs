@@ -16,35 +16,73 @@ impl From<TodoRecord> for Todo {
     fn from(record: TodoRecord) -> Self {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
+        use surrealdb::sql::Id;
 
         let id = record
             .id
             .map(|thing| {
-                let id_str = thing.id.to_string();
-                // まず整数としてパースを試みる
-                id_str.parse::<i32>().unwrap_or_else(|_| {
-                    // パースできない場合はハッシュ値を使用（SurrealDBのULID/UUID対応）
-                    let mut hasher = DefaultHasher::new();
-                    id_str.hash(&mut hasher);
-                    let hash = hasher.finish();
-                    // i32の正の範囲に収める（1から始まる）
-                    ((hash % (i32::MAX as u64 - 1)) + 1) as i32
-                })
+                match &thing.id {
+                    Id::String(s) => {
+                        println!("🔧 ID変換: SurrealDB ID (String) = '{}'", s);
+                        // 文字列を整数にパース
+                        s.parse::<i32>().unwrap_or_else(|_| {
+                            // パースできない場合はハッシュ値を使用（ULID/UUID対応）
+                            let mut hasher = DefaultHasher::new();
+                            s.hash(&mut hasher);
+                            let hash = hasher.finish();
+                            let final_id = ((hash % (i32::MAX as u64 - 1)) + 1) as i32;
+                            println!("🔧 ID変換: ハッシュ後のID = {}", final_id);
+                            final_id
+                        })
+                    }
+                    Id::Number(n) => {
+                        println!("🔧 ID変換: SurrealDB ID (Number) = {}", n);
+                        *n as i32
+                    }
+                    Id::Array(a) => {
+                        println!("🔧 ID変換: SurrealDB ID (Array) = {:?}", a);
+                        // 配列の場合はハッシュ化
+                        let mut hasher = DefaultHasher::new();
+                        format!("{:?}", a).hash(&mut hasher);
+                        let hash = hasher.finish();
+                        ((hash % (i32::MAX as u64 - 1)) + 1) as i32
+                    }
+                    Id::Object(o) => {
+                        println!("🔧 ID変換: SurrealDB ID (Object) = {:?}", o);
+                        // オブジェクトの場合はハッシュ化
+                        let mut hasher = DefaultHasher::new();
+                        format!("{:?}", o).hash(&mut hasher);
+                        let hash = hasher.finish();
+                        ((hash % (i32::MAX as u64 - 1)) + 1) as i32
+                    }
+                    _ => {
+                        println!("🔧 ID変換: SurrealDB ID (Unknown)");
+                        1
+                    }
+                }
             })
             .unwrap_or(1); // IDが無い場合のデフォルト値
 
+        println!("🔧 ID変換: 最終的なID = {}", id);
         Todo::reconstruct(id, record.title, record.completed)
     }
 }
 
 /// SurrealDB実装のTodoリポジトリ
+use tokio::sync::Mutex;
+
 pub struct TodoRepositoryImpl {
     db: DbClient,
+    // async mutex for Send future
+    next_id: Mutex<i32>,
 }
 
 impl TodoRepositoryImpl {
     pub fn new(db: DbClient) -> Self {
-        Self { db }
+        Self {
+            db,
+            next_id: Mutex::new(0),
+        }
     }
 }
 
@@ -61,16 +99,26 @@ impl TodoRepository for TodoRepositoryImpl {
     }
 
     async fn find_by_id(&self, id: i32) -> Result<Option<Todo>, String> {
+        println!("🔍 find_by_id: IDで検索しています: todos:{}", id);
+
         let record: Option<TodoRecord> = self
             .db
             .select(("todos", id.to_string()))
             .await
             .map_err(|e| format!("データベースエラー: {}", e))?;
 
+        println!("🔍 find_by_id: 検索結果: {:?}", record);
         Ok(record.map(Into::into))
     }
 
     async fn save(&self, todo: &Todo) -> Result<Todo, String> {
+        // 既存のレコードから最大IDを取得して次のIDを生成
+        // 次の ID を取得 (ロックしてインクリメント)
+        let mut id_guard = self.next_id.lock().await;
+        *id_guard += 1;
+        let new_id = *id_guard;
+        println!("✅ save: 生成された新しい ID = {}", new_id);
+
         #[derive(Serialize)]
         struct CreateTodo {
             title: String,
@@ -82,16 +130,19 @@ impl TodoRepository for TodoRepositoryImpl {
             completed: todo.is_completed(),
         };
 
-        // createは単一レコードを返すので Option<TodoRecord> を取得し unwrap
+        // 明示的に ID を指定してレコードを作成
         let created: Option<TodoRecord> = self
             .db
-            .create("todos")
+            .create(("todos", new_id.to_string()))
             .content(new_todo)
             .await
             .map_err(|e| format!("データベースエラー: {}", e))?;
 
         let created = created.ok_or_else(|| "作成に失敗しました".to_string())?;
-        Ok(created.into())
+        println!("✅ save: 作成されたレコード: {:?}", created);
+        let todo_entity = created.into();
+        println!("✅ save: Todoエンティティ: {:?}", todo_entity);
+        Ok(todo_entity)
     }
 
     async fn update(&self, todo: &Todo) -> Result<Todo, String> {

@@ -13,6 +13,7 @@ services:
       dockerfile: Dockerfile.backend
     environment:
       DATABASE_URL: db:8000
+      PORT: 8000
       DATABASE_USER: root
       DATABASE_PASS: root
       DATABASE_NS: app
@@ -23,7 +24,6 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
-      - /app/target 
 
   frontend:
     build:
