@@ -2,11 +2,14 @@ FROM rust:latest
 
 WORKDIR /app
 
+# Install cargo-watch for hot reloading
+RUN cargo install cargo-watch
+
 # Copy source code (will be overridden by volume mount in dev)
 COPY . .
 
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["cargo", "run", "--bin", "backend"]
+# Run the application with hot reload
+CMD ["cargo", "watch", "-x", "run --bin backend"]

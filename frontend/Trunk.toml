@@ -1,0 +1,9 @@
+[build]
+target = "index.html"
+
+[watch]
+ignore = ["./target", "./dist"]
+
+[[proxy]]
+rewrite = "/api/"
+backend = "http://backend:8000/api/"

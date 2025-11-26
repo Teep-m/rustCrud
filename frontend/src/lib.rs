@@ -82,7 +82,7 @@ pub fn App() -> impl IntoView {
 
     view! {
         <div class="container">
-            <h1>"Rust Todo App"</h1>
+            <h1>"todo app"</h1>
             <div class="input-group">
                 <input type="text" id="new-todo" placeholder="Add a new todo..." 
                     on:keydown=move |ev| {

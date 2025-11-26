@@ -34,8 +34,33 @@ DDDに基づいた4層アーキテクチャ:
 
 ## クイックスタート
 
+### 開発モード（ホットリロード有効）
+
 ```bash
 make up
+```
+
+または
+
+```bash
+docker compose up
+```
+
+アプリケーションにアクセス:
+- **Frontend**: http://localhost:8080
+- **Backend API**: http://localhost:8000/api/todos
+- **SurrealDB Web UI**: http://localhost:8080 (ポート8080でSurrealDBのUIにアクセス)
+
+**ホットリロード機能**:
+- バックエンド: `cargo-watch` を使用して、ソースコードの変更を検知して自動的に再ビルド・再起動
+- フロントエンド: `trunk serve` を使用して、ソースコードの変更を検知して自動的に再ビルド・リロード
+
+ファイルを編集すると、自動的に変更が反映されます！
+
+### プロダクションモード
+
+```bash
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 アプリケーションにアクセス:
@@ -47,10 +72,11 @@ make up
 
 | コマンド | 説明 |
 | --- | --- |
-| `make up` | コンテナをビルドして起動 |
+| `make up` | 開発モードでコンテナをビルドして起動（ホットリロード有効） |
 | `make down` | コンテナを停止・削除 |
 | `make logs` | ログを表示 |
 | `make clean-db` | DBデータを削除してリセット |
+| `docker compose -f docker-compose.prod.yml up -d` | プロダクションモードで起動 |
 
 ## API エンドポイント
 
@@ -82,6 +108,34 @@ curl -X DELETE http://localhost/api/todos/1
 ```
 
 ## 開発
+
+### ホットリロードの仕組み
+
+#### バックエンド
+- `cargo-watch` がファイルの変更を監視
+- `.rs` ファイルが変更されると自動的に `cargo run --bin backend` を実行
+- ソースコードは `./backend` ディレクトリがコンテナ内の `/app/backend` にマウントされています
+- `target` ディレクトリと `cargo registry` はDockerボリュームにキャッシュされ、ビルド速度が向上
+
+#### フロントエンド
+- `trunk serve` が開発サーバーとして動作
+- `.rs` ファイルや `index.html` が変更されると自動的に再ビルド
+- ブラウザが自動的にリロードされます
+- ソースコードは `./frontend` ディレクトリがコンテナ内の `/app/frontend` にマウントされています
+
+### ローカル開発（Dockerなし）
+
+バックエンド:
+```bash
+cd backend
+DATABASE_URL=http://127.0.0.1:8001 PORT=8081 cargo run
+```
+
+フロントエンド:
+```bash
+cd frontend
+trunk serve --port 8080
+```
 
 ### SurrealDBの直接操作
 
@@ -123,9 +177,12 @@ CREATE todos SET title = "Test", completed = false;
 │   │   ├── lib.rs            # メインコンポーネント
 │   │   └── main.rs           # エントリーポイント
 │   └── index.html            # HTMLテンプレート
-├── docker-compose.yml        # Docker構成
-├── Dockerfile.backend        # Backendイメージ
-├── Dockerfile.frontend       # Frontendイメージ
+├── docker-compose.yml        # 開発環境用Docker構成（ホットリロード有効）
+├── docker-compose.prod.yml   # プロダクション環境用Docker構成
+├── Dockerfile.backend        # Backend開発用イメージ
+├── Dockerfile.backend.prod   # Backendプロダクション用イメージ
+├── Dockerfile.frontend       # Frontend開発用イメージ
+├── Dockerfile.frontend.prod  # Frontendプロダクション用イメージ
 ├── nginx.conf                # Nginx設定
 └── Makefile                  # 便利コマンド
 ```

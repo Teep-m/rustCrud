@@ -10,7 +10,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: Dockerfile.backend.prod
     environment:
       DATABASE_URL: db:8000
       PORT: 8000
@@ -22,28 +22,15 @@ services:
       - db
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend:/app/backend
-      - ./Cargo.toml:/app/Cargo.toml
-      - ./Cargo.lock:/app/Cargo.lock
-      - backend_target:/app/target
-      - cargo_registry:/usr/local/cargo/registry
 
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile.frontend
+      dockerfile: Dockerfile.frontend.prod
     ports:
-      - "8081:8080"
+      - "80:80"
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app/frontend
-      - frontend_target:/app/frontend/target
-      - cargo_registry:/usr/local/cargo/registry
 
 volumes:
   surrealdb_data:
-  backend_target:
-  frontend_target:
-  cargo_registry:
