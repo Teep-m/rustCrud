@@ -31,12 +31,16 @@
       margin-bottom: 1rem;
     }
 
-    input {
+    input, textarea {
       flex: 1;
       padding: 0.5rem;
       font-size: 1rem;
       border: 1px solid #ddd;
       border-radius: 4px;
+    }
+
+    textarea {
+      resize: vertical;
     }
 
     ul {
@@ -56,12 +60,13 @@
       border-bottom: none;
     }
 
-    li span {
+    .todo-text {
       cursor: pointer;
       flex: 1;
+      white-space: pre-wrap;
     }
 
-    li.completed span {
+    li.completed .todo-text {
       text-decoration: line-through;
       color: #888;
     }

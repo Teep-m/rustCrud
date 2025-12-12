@@ -1,9 +1,10 @@
 services:
   db:
     image: surrealdb/surrealdb:latest
-    command: start --user root --pass root
+    user: root
+    command: start --user root --pass root file:///data
     ports:
-      - "8080:8000"
+      - "8082:8000"
     volumes:
       - surrealdb_data:/data
 

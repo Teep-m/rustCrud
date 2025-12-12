@@ -112,13 +112,6 @@ impl TodoRepository for TodoRepositoryImpl {
     }
 
     async fn save(&self, todo: &Todo) -> Result<Todo, String> {
-        // 既存のレコードから最大IDを取得して次のIDを生成
-        // 次の ID を取得 (ロックしてインクリメント)
-        let mut id_guard = self.next_id.lock().await;
-        *id_guard += 1;
-        let new_id = *id_guard;
-        println!("✅ save: 生成された新しい ID = {}", new_id);
-
         #[derive(Serialize)]
         struct CreateTodo {
             title: String,
@@ -130,10 +123,10 @@ impl TodoRepository for TodoRepositoryImpl {
             completed: todo.is_completed(),
         };
 
-        // 明示的に ID を指定してレコードを作成
+        // ID自動生成でレコードを作成
         let created: Option<TodoRecord> = self
             .db
-            .create(("todos", new_id.to_string()))
+            .create("todos")
             .content(new_todo)
             .await
             .map_err(|e| format!("データベースエラー: {}", e))?;

@@ -67,6 +67,7 @@ impl TodoService {
     /// Todoを削除
     pub async fn delete_todo(&self, id: i32) -> Result<(), String> {
         // 存在確認
+        dbg!(id);
         self.repository
             .find_by_id(id)
             .await?
