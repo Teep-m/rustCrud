@@ -6,7 +6,6 @@ backend/target
 frontend/target
 Dockerfile.frontend
 Dockerfile.backend
-Cargo.lock
 # Exclude IDE files
 .idea
 .vscode

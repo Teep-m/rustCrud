@@ -1,11 +1,17 @@
 services:
   db:
-    image: surrealdb/surrealdb:latest
-    command: start --user root --pass root
-    ports:
-      - "8080:8000"
+    image: surrealdb/surrealdb:v2.0.4
+    command: start --user ${DB_USER} --pass ${DB_PASS} file:///data
+    expose:
+      - "8000"
     volumes:
       - surrealdb_data:/data
+    restart: always
+    healthcheck:
+      test: [ "CMD", "/surreal", "is-ready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
@@ -14,14 +20,16 @@ services:
     environment:
       DATABASE_URL: db:8000
       PORT: 8000
-      DATABASE_USER: root
-      DATABASE_PASS: root
-      DATABASE_NS: app
-      DATABASE_NAME: todos
+      DATABASE_USER: ${DB_USER}
+      DATABASE_PASS: ${DB_PASS}
+      DATABASE_NS: ${DB_NS:-app}
+      DATABASE_NAME: ${DB_NAME:-todos}
     depends_on:
-      - db
-    ports:
-      - "8000:8000"
+      db:
+        condition: service_healthy
+    expose:
+      - "8000"
+    restart: always
 
   frontend:
     build:
@@ -31,6 +39,7 @@ services:
       - "80:80"
     depends_on:
       - backend
+    restart: always
 
 volumes:
   surrealdb_data:
