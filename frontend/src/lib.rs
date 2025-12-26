@@ -1,6 +1,6 @@
+use gloo_net::http::Request;
 use leptos::*;
 use serde::{Deserialize, Serialize};
-use gloo_net::http::Request;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Todo {
@@ -20,7 +20,7 @@ pub struct User {
 #[component]
 pub fn App() -> impl IntoView {
     let (todos, set_todos) = create_signal(Vec::<Todo>::new());
-    let (users , set_users) = create_signal(Vec::<User>::new());
+    let (users, set_users) = create_signal(Vec::<User>::new());
 
     // Fetch todos on load
     create_effect(move |_| {
@@ -48,7 +48,7 @@ pub fn App() -> impl IntoView {
                 .send()
                 .await
                 .unwrap();
-            
+
             if res.ok() {
                 let todo: Todo = res.json().await.unwrap();
                 set_todos.update(|t| t.push(todo));
@@ -91,9 +91,9 @@ pub fn App() -> impl IntoView {
 
     view! {
         <div class="container">
-            <h1>"Todo App"</h1>
+            <h1>"✨ Modern Todo"</h1>
             <div class="input-group">
-                <textarea id="new-todo" placeholder="Add a new todo..."
+                <textarea id="new-todo" placeholder="What needs to be done? ✍️"
                     on:keydown=move |ev| {
                         if ev.key() == "Enter" && !ev.shift_key() {
                             ev.prevent_default();
@@ -115,11 +115,14 @@ pub fn App() -> impl IntoView {
                         let title = todo.title.clone();
                         view! {
                             <li class={if todo.completed { "completed" } else { "" }}>
+                                <div class="todo-checkbox" on:click=move |_| toggle_todo(todo.id, todo.completed)>
+                                    <span class="checkmark">"✓"</span>
+                                </div>
                                 <div class="todo-text" on:click=move |_| toggle_todo(todo.id, todo.completed)>
                                     {title}
                                 </div>
-                                <button on:click=move |_| delete_todo(todo.id)>"X"</button>
-                                <p>{todo.id}</p>
+                                <span class="todo-id">"#"{todo.id}</span>
+                                <button on:click=move |_| delete_todo(todo.id)>"Delete"</button>
                             </li>
                         }
                     }

@@ -1,93 +1,304 @@
 <!DOCTYPE html>
 <html>
+  <head>
+    <meta charset="utf-8" />
+    <title>✨ Modern Todo App</title>
+    <link data-trunk rel="rust" data-bin="frontend" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-<head>
-  <meta charset="utf-8" />
-  <title>Rust Todo</title>
-  <link data-trunk rel="rust" data-bin="frontend" />
-  <style>
-    body {
-      font-family: sans-serif;
-      max-width: 600px;
-      margin: 2rem auto;
-      padding: 0 1rem;
-      background-color: #f4f4f9;
-    }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
 
-    .container {
-      background: white;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateX(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
 
-    h1 {
-      text-align: center;
-      color: #333;
-    }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
 
-    .input-group {
-      display: flex;
-      margin-bottom: 1rem;
-    }
+      body {
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        min-height: 100vh;
+        background: linear-gradient(
+          135deg,
+          #667eea 0%,
+          #764ba2 50%,
+          #f093fb 100%
+        );
+        background-attachment: fixed;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        color: #fff;
+      }
 
-    input, textarea {
-      flex: 1;
-      padding: 0.5rem;
-      font-size: 1rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-    }
+      .container {
+        width: 100%;
+        max-width: 650px;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(20px);
+        border-radius: 24px;
+        padding: 3rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
+          inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        animation: fadeIn 0.6s ease-out;
+      }
 
-    textarea {
-      resize: vertical;
-    }
+      h1 {
+        text-align: center;
+        color: #fff;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 2rem;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        letter-spacing: -0.5px;
+      }
 
-    ul {
-      list-style: none;
-      padding: 0;
-    }
+      .input-group {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 2rem;
+        position: relative;
+      }
 
-    li {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.5rem;
-      border-bottom: 1px solid #eee;
-    }
+      textarea {
+        flex: 1;
+        padding: 1rem 1.25rem;
+        font-size: 1rem;
+        font-family: "Inter", sans-serif;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(10px);
+        color: #fff;
+        resize: none;
+        min-height: 60px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-weight: 400;
+      }
 
-    li:last-child {
-      border-bottom: none;
-    }
+      textarea::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+      }
 
-    .todo-text {
-      cursor: pointer;
-      flex: 1;
-      white-space: pre-wrap;
-    }
+      textarea:focus {
+        outline: none;
+        border-color: rgba(255, 255, 255, 0.5);
+        background: rgba(255, 255, 255, 0.2);
+        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1);
+      }
 
-    li.completed .todo-text {
-      text-decoration: line-through;
-      color: #888;
-    }
+      ul {
+        list-style: none;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
 
-    button {
-      background: #ff4444;
-      color: white;
-      border: none;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-left: 1rem;
-    }
+      li {
+        display: flex;
+        align-items: center;
+        padding: 1.25rem 1.5rem;
+        background: rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: slideIn 0.4s ease-out;
+        position: relative;
+        overflow: hidden;
+      }
 
-    button:hover {
-      background: #cc0000;
-    }
-  </style>
-</head>
+      li::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          135deg,
+          rgba(255, 255, 255, 0.1) 0%,
+          transparent 100%
+        );
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
 
-<body>
-</body>
+      li:hover::before {
+        opacity: 1;
+      }
 
+      li:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        border-color: rgba(255, 255, 255, 0.3);
+      }
+
+      .todo-text {
+        cursor: pointer;
+        flex: 1;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 1rem;
+        line-height: 1.6;
+        color: #fff;
+        transition: all 0.3s ease;
+        font-weight: 500;
+      }
+
+      li.completed {
+        opacity: 0.6;
+      }
+
+      li.completed .todo-text {
+        text-decoration: line-through;
+        color: rgba(255, 255, 255, 0.7);
+      }
+
+      .todo-checkbox {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        margin-right: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+
+      li.completed .todo-checkbox {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border-color: transparent;
+      }
+
+      .checkmark {
+        display: none;
+        color: white;
+        font-size: 14px;
+      }
+
+      li.completed .checkmark {
+        display: block;
+      }
+
+      button {
+        background: rgba(255, 77, 109, 0.9);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        flex-shrink: 0;
+      }
+
+      button:hover {
+        background: rgba(255, 30, 70, 1);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255, 77, 109, 0.4);
+      }
+
+      button:active {
+        transform: translateY(0);
+      }
+
+      .todo-id {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.5);
+        margin-left: 0.75rem;
+        font-weight: 400;
+        flex-shrink: 0;
+      }
+
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 10px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 10px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.5);
+      }
+
+      /* Empty state */
+      .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 1.1rem;
+        font-weight: 400;
+      }
+
+      /* Responsive */
+      @media (max-width: 640px) {
+        .container {
+          padding: 2rem 1.5rem;
+        }
+
+        h1 {
+          font-size: 2rem;
+        }
+
+        li {
+          padding: 1rem;
+        }
+      }
+    </style>
+  </head>
+
+  <body></body>
 </html>

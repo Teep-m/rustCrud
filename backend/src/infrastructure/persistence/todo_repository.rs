@@ -68,21 +68,45 @@ impl From<TodoRecord> for Todo {
     }
 }
 
+use std::collections::HashMap;
 /// SurrealDB実装のTodoリポジトリ
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 pub struct TodoRepositoryImpl {
     db: DbClient,
-    // async mutex for Send future
-    next_id: Mutex<i32>,
+    // i32 ID -> SurrealDB String ID のマッピング
+    id_mapping: RwLock<HashMap<i32, String>>,
 }
 
 impl TodoRepositoryImpl {
     pub fn new(db: DbClient) -> Self {
         Self {
             db,
-            next_id: Mutex::new(0),
+            id_mapping: RwLock::new(HashMap::new()),
         }
+    }
+
+    /// ThingからSurrealDBの文字列IDを抽出
+    fn extract_id_string(thing: &Thing) -> String {
+        use surrealdb::sql::Id;
+        match &thing.id {
+            Id::String(s) => s.clone(),
+            Id::Number(n) => n.to_string(),
+            Id::Array(a) => format!("{:?}", a),
+            Id::Object(o) => format!("{:?}", o),
+            _ => "unknown".to_string(),
+        }
+    }
+
+    /// 文字列IDをi32にハッシュ化
+    fn hash_to_i32(s: &str) -> i32 {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        s.hash(&mut hasher);
+        let hash = hasher.finish();
+        ((hash % (i32::MAX as u64 - 1)) + 1) as i32
     }
 }
 
@@ -95,20 +119,48 @@ impl TodoRepository for TodoRepositoryImpl {
             .await
             .map_err(|e| format!("データベースエラー: {}", e))?;
 
-        Ok(records.into_iter().map(Into::into).collect())
+        // マッピングを更新
+        let mut mapping = self.id_mapping.write().await;
+        mapping.clear();
+
+        let todos: Vec<Todo> = records
+            .into_iter()
+            .map(|record| {
+                // IDマッピングを構築
+                if let Some(ref thing) = record.id {
+                    let surreal_id = Self::extract_id_string(thing);
+                    let hashed_id = Self::hash_to_i32(&surreal_id);
+                    println!("📝 マッピング追加: {} -> {}", hashed_id, surreal_id);
+                    mapping.insert(hashed_id, surreal_id);
+                }
+                record.into()
+            })
+            .collect();
+
+        Ok(todos)
     }
 
     async fn find_by_id(&self, id: i32) -> Result<Option<Todo>, String> {
-        println!("🔍 find_by_id: IDで検索しています: todos:{}", id);
+        println!("🔍 find_by_id: IDで検索しています: {}", id);
 
-        let record: Option<TodoRecord> = self
-            .db
-            .select(("todos", id.to_string()))
-            .await
-            .map_err(|e| format!("データベースエラー: {}", e))?;
+        // マッピングから実際のSurrealDB IDを取得
+        let mapping = self.id_mapping.read().await;
+        let surreal_id = mapping.get(&id);
 
-        println!("🔍 find_by_id: 検索結果: {:?}", record);
-        Ok(record.map(Into::into))
+        if let Some(surreal_id) = surreal_id {
+            println!("🔍 find_by_id: マッピング発見: {} -> {}", id, surreal_id);
+            let record: Option<TodoRecord> = self
+                .db
+                .select(("todos", surreal_id.as_str()))
+                .await
+                .map_err(|e| format!("データベースエラー: {}", e))?;
+
+            println!("🔍 find_by_id: 検索結果: {:?}", record.is_some());
+            Ok(record.map(Into::into))
+        } else {
+            println!("🔍 find_by_id: マッピングが見つかりません: {}", id);
+            Ok(None)
+        }
     }
 
     async fn save(&self, todo: &Todo) -> Result<Todo, String> {
@@ -133,6 +185,15 @@ impl TodoRepository for TodoRepositoryImpl {
 
         let created = created.ok_or_else(|| "作成に失敗しました".to_string())?;
         println!("✅ save: 作成されたレコード: {:?}", created);
+
+        // マッピングに追加
+        if let Some(ref thing) = created.id {
+            let surreal_id = Self::extract_id_string(thing);
+            let hashed_id = Self::hash_to_i32(&surreal_id);
+            println!("📝 save: マッピング追加: {} -> {}", hashed_id, surreal_id);
+            self.id_mapping.write().await.insert(hashed_id, surreal_id);
+        }
+
         let todo_entity = created.into();
         println!("✅ save: Todoエンティティ: {:?}", todo_entity);
         Ok(todo_entity)
@@ -152,9 +213,19 @@ impl TodoRepository for TodoRepositoryImpl {
             completed: todo.is_completed(),
         };
 
+        // マッピングから実際のSurrealDB IDを取得
+        let mapping = self.id_mapping.read().await;
+        let surreal_id = mapping
+            .get(&id)
+            .ok_or_else(|| format!("ID {} のマッピングが見つかりません", id))?
+            .clone();
+        drop(mapping); // read lockを早めに解放
+
+        println!("🔄 update: マッピング使用: {} -> {}", id, surreal_id);
+
         let updated: Option<TodoRecord> = self
             .db
-            .update(("todos", id.to_string()))
+            .update(("todos", surreal_id.as_str()))
             .content(update_data)
             .await
             .map_err(|e| format!("データベースエラー: {}", e))?;
@@ -165,11 +236,25 @@ impl TodoRepository for TodoRepositoryImpl {
     }
 
     async fn delete(&self, id: i32) -> Result<(), String> {
+        // マッピングから実際のSurrealDB IDを取得
+        let mapping = self.id_mapping.read().await;
+        let surreal_id = mapping
+            .get(&id)
+            .ok_or_else(|| format!("ID {} のマッピングが見つかりません", id))?
+            .clone();
+        drop(mapping); // read lockを解放
+
+        println!("🗑️ delete: マッピング使用: {} -> {}", id, surreal_id);
+
         let _: Option<TodoRecord> = self
             .db
-            .delete(("todos", id.to_string()))
+            .delete(("todos", surreal_id.as_str()))
             .await
             .map_err(|e| format!("データベースエラー: {}", e))?;
+
+        // マッピングから削除
+        self.id_mapping.write().await.remove(&id);
+        println!("🗑️ delete: マッピング削除: {}", id);
 
         Ok(())
     }

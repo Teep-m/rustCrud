@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use super::dto::{CreateTodoDto, TodoResponseDto, UpdateTodoDto};
 use crate::domain::todo::{Todo, TodoRepository};
-use super::dto::{CreateTodoDto, UpdateTodoDto, TodoResponseDto};
+use std::sync::Arc;
 
 /// Todoサービス
 /// アプリケーションのユースケースを実装
@@ -21,11 +21,12 @@ impl TodoService {
 
     /// IDでTodoを取得
     pub async fn get_todo_by_id(&self, id: i32) -> Result<TodoResponseDto, String> {
-        let todo = self.repository
+        let todo = self
+            .repository
             .find_by_id(id)
             .await?
             .ok_or_else(|| "Todoが見つかりません".to_string())?;
-        
+
         Ok(Self::to_response_dto(todo))
     }
 
@@ -40,8 +41,13 @@ impl TodoService {
     }
 
     /// Todoを更新
-    pub async fn update_todo(&self, id: i32, dto: UpdateTodoDto) -> Result<TodoResponseDto, String> {
-        let mut todo = self.repository
+    pub async fn update_todo(
+        &self,
+        id: i32,
+        dto: UpdateTodoDto,
+    ) -> Result<TodoResponseDto, String> {
+        let mut todo = self
+            .repository
             .find_by_id(id)
             .await?
             .ok_or_else(|| "Todoが見つかりません".to_string())?;
@@ -66,13 +72,7 @@ impl TodoService {
 
     /// Todoを削除
     pub async fn delete_todo(&self, id: i32) -> Result<(), String> {
-        // 存在確認
-        dbg!(id);
-        self.repository
-            .find_by_id(id)
-            .await?
-            .ok_or_else(|| "Todoが見つかりません".to_string())?;
-
+        // 存在確認なしで直接削除（SurrealDBは存在しない場合もエラーを返さない）
         self.repository.delete(id).await
     }
 
